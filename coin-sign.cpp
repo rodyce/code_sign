@@ -1,6 +1,8 @@
 #include <string>
 #include <stdexcept>
 
+#include "primitives/transaction.h"
+#include "univalue.h"
 #include "core_io.h"
 
 
