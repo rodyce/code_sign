@@ -4,7 +4,7 @@ project (coin_sign)
 set (COIN_SIGN coin_sign)
 
 include(FindPkgConfig)
-find_package(Boost 1.58.0 REQUIRED)
+find_package(Boost 1.58.0 REQUIRED COMPONENTS system filesystem thread program_options)
 
 if (Boost_FOUND)
     message("Boost found")
