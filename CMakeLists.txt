@@ -5,17 +5,31 @@ set (COIN_SIGN coin_sign)
 
 include(FindPkgConfig)
 find_package(Boost 1.58.0 REQUIRED COMPONENTS system filesystem thread program_options)
+pkg_check_modules(Secp256k1 REQUIRED libsecp256k1)
+pkg_check_modules(Openssl REQUIRED openssl)
+pkg_check_modules(Univalue REQUIRED libunivalue)
 
-if (Boost_FOUND)
-    message("Boost found")
-else()
-    message("Boost NOT found")
+if (Boost_NOTFOUND)
+    message("Error: Requires Boost >= 1.58.0")
 endif()
+
+if (Secp256k1_NOTFOUND)
+    message("Error: Requires libsecp256k1 >= 0.1")
+endif()
+
+if (Openssl_NOTFOUND)
+    message("Error: Requires openssl >= 0.29.1")
+endif()
+    
+if (Univalue_NOTFOUND)
+    message("Error: Requires openssl >= 0.29.1")
+endif()
+
 
 include_directories (
     ${CMAKE_SOURCE_DIR}
     ${CMAKE_SOURCE_DIR}/secp256k1/include
-    ${CMAKE_SOURCE_DIR}/univalue
+    ${CMAKE_SOURCE_DIR}/univalue/include
 )
 
 file(GLOB SOURCES ${CMAKE_SOURCE_DIR}/*.cpp)
@@ -51,4 +65,8 @@ add_executable(${COIN_SIGN}
     ${SOURCE}
 )
 
-target_link_libraries(${PROJECT_NAME} ${Boost_LIBRARIES})
+target_link_libraries(${PROJECT_NAME}
+    ${Boost_LIBRARIES}
+    ${Secp256k1_LIBRARIES}
+    ${Openssl_LIBRARIES}
+    ${Univalue_LIBRARIES})

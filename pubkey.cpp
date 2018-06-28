@@ -188,6 +188,10 @@ bool CPubKey::Verify(const uint256 &hash, const std::vector<unsigned char>& vchS
     return secp256k1_ecdsa_verify(secp256k1_context_verify, &sig, hash.begin(), &pubkey);
 }
 
+#if 0
+NOT NEEDED FOR NOW...
+TODO: Enable later
+
 bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned char>& vchSig) {
     if (vchSig.size() != COMPACT_SIGNATURE_SIZE)
         return false;
@@ -207,6 +211,7 @@ bool CPubKey::RecoverCompact(const uint256 &hash, const std::vector<unsigned cha
     Set(pub, pub + publen);
     return true;
 }
+#endif
 
 bool CPubKey::IsFullyValid() const {
     if (!IsValid())
