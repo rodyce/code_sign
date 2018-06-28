@@ -1,3 +1,4 @@
+#include <iostream>
 #include <string>
 #include <stdexcept>
 
@@ -9,6 +10,8 @@
 UniValue sign_transaction(const std::string& hexTx);
 
 int main(int argc, char* argv[]) {
+    std::string test_str = "a0000000000001ed8d79336b9a932b002eb7bf0cb8244e25ddcd4c1fadb33668a412563d7209529000000000feffffff0201002f6859000000001976a91417fbed35c4f760c1cdef0e5d9c0716c3e71ebbbe88ac01d811af4e040000001976a914c225abb9037fd9279314f8dd885bc9088373a3d388ac024730440220414ad021b024a46f83008121b577f6a05524324a7f12833655aa82b06e54e27e02204c900130b9f6bba529e0213db30242d9e75d6bfc599d3df3e9003a810f6386420121036a031a93d56feac2cc1c3421d6bf30d7fd2a8f053c8d85a458808cc218734ad7";
+    sign_transaction(test_str);
     return 0;
 }
 
@@ -16,6 +19,8 @@ UniValue sign_transaction(const std::string& hexTx) {
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, hexTx, true))
         throw std::invalid_argument("TX decode failed");
+
+    std::cout << "Tx Version: " << mtx.nVersion << std::endl;
 /*
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
