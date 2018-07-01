@@ -1,26 +1,167 @@
 #include <iostream>
 #include <string>
 #include <stdexcept>
+#include <vector>
 
 #include "primitives/transaction.h"
 #include "univalue.h"
 #include "core_io.h"
 
 
-UniValue sign_transaction(const std::string& hexTx);
+const std::string test_prev_outs =
+R"(
+[
+  {
+    "txid": "5209723d5612a46836b3ad1f4ccddd254e24b80cbfb72e002b939a6b33798ded",
+    "vout": 0,
+    "address": "EHSTekNVcFj5i6XUoFUZ2WKkog6AUabdTo",
+    "scriptPubKey": "76a91403217fe1e5f895420b2b30cb5dc4ef990a5f899488ac",
+    "amount": 200.00000000,
+    "confirmations": 1,
+    "spendable": true,
+    "solvable": true,
+    "safe": true
+  },
+  {
+    "txid": "5209723d5612a46836b3ad1f4ccddd254e24b80cbfb72e002b939a6b33798ded",
+    "vout": 1,
+    "address": "Ea2AFEGgkXH86HTziLhTNLrbpRn7F7uyHb",
+    "scriptPubKey": "76a914b903201a6480907984b74dde59e71149c0c4503f88ac",
+    "amount": 200.00000000,
+    "confirmations": 1,
+    "spendable": true,
+    "solvable": true,
+    "safe": true
+  }
+]
+)";
+
+const std::string test_str = "a0000000000001ed8d79336b9a932b002eb7bf0cb8244e25ddcd4c1fadb33668a412563d7209529000000000feffffff0201002f6859000000001976a91417fbed35c4f760c1cdef0e5d9c0716c3e71ebbbe88ac01d811af4e040000001976a914c225abb9037fd9279314f8dd885bc9088373a3d388ac024730440220414ad021b024a46f83008121b577f6a05524324a7f12833655aa82b06e54e27e02204c900130b9f6bba529e0213db30242d9e75d6bfc599d3df3e9003a810f6386420121036a031a93d56feac2cc1c3421d6bf30d7fd2a8f053c8d85a458808cc218734ad7";
+
+UniValue sign_transaction(const std::string& hexTx, const std::string& prevOutsJson);
+
+
+#include "utilstrencodings.h"
+#include "tinyformat.h"
+uint256 ParseHashV(const UniValue& v, std::string strName)
+{
+    std::string strHex;
+    if (v.isStr())
+        strHex = v.get_str();
+    if (!IsHex(strHex)) // Note: IsHex("") is false
+        throw std::invalid_argument(strName+" must be hexadecimal string (not '"+strHex+"')");
+    if (64 != strHex.length())
+        throw std::invalid_argument(strprintf("%s must be of length %d (not %d)", strName, 64, strHex.length()));
+    uint256 result;
+    result.SetHex(strHex);
+    return result;
+}
+uint256 ParseHashO(const UniValue& o, std::string strKey)
+{
+    return ParseHashV(find_value(o, strKey), strKey);
+}
+std::vector<unsigned char> ParseHexV(const UniValue& v, std::string strName)
+{
+    std::string strHex;
+    if (v.isStr())
+        strHex = v.get_str();
+    if (!IsHex(strHex))
+        throw std::invalid_argument(strName+" must be hexadecimal string (not '"+strHex+"')");
+    return ParseHex(strHex);
+}
+std::vector<unsigned char> ParseHexO(const UniValue& o, std::string strKey)
+{
+    return ParseHexV(find_value(o, strKey), strKey);
+}
+
+
 
 int main(int argc, char* argv[]) {
-    std::string test_str = "a0000000000001ed8d79336b9a932b002eb7bf0cb8244e25ddcd4c1fadb33668a412563d7209529000000000feffffff0201002f6859000000001976a91417fbed35c4f760c1cdef0e5d9c0716c3e71ebbbe88ac01d811af4e040000001976a914c225abb9037fd9279314f8dd885bc9088373a3d388ac024730440220414ad021b024a46f83008121b577f6a05524324a7f12833655aa82b06e54e27e02204c900130b9f6bba529e0213db30242d9e75d6bfc599d3df3e9003a810f6386420121036a031a93d56feac2cc1c3421d6bf30d7fd2a8f053c8d85a458808cc218734ad7";
-    sign_transaction(test_str);
+    sign_transaction(test_str, test_prev_outs);
     return 0;
 }
 
-UniValue sign_transaction(const std::string& hexTx) {
+#include "script/interpreter.h"
+#include "script/sign.h"
+#include "keystore.h"
+#include "base58.h"
+UniValue sign_transaction(const std::string& hexTx, const std::string& prevOutsJson) {
     CMutableTransaction mtx;
     if (!DecodeHexTx(mtx, hexTx, true))
         throw std::invalid_argument("TX decode failed");
 
     std::cout << "Tx Version: " << mtx.nVersion << std::endl;
+
+    UniValue prev_outs;
+    prev_outs.read(prevOutsJson);
+
+    if (prev_outs.getType() == UniValue::VType::VARR) {
+        for (UniValue prev_out : prev_outs.getValues()) {
+            if (!prev_out.isObject()) {
+                throw std::runtime_error("Not an obj");
+            }
+            uint256 txid = ParseHashO(prev_out, "txid");
+            int nOut = find_value(prev_out, "vout").get_int();
+            if (nOut < 0)
+                throw std::invalid_argument("vout must be positive");
+
+            COutPoint out(txid, nOut);
+            std::vector<unsigned char> pkData(ParseHexO(prev_out, "scriptPubKey"));
+            CScript scriptPubKey(pkData.begin(), pkData.end());
+        }
+    }
+
+    CBasicKeyStore tempKeystore;
+    if (!request.params[2].isNull()) {
+        UniValue keys = request.params[2].get_array();
+        for (unsigned int idx = 0; idx < keys.size(); idx++) {
+            UniValue k = keys[idx];
+            CBitcoinSecret vchSecret;
+            bool fGood = vchSecret.SetString(k.get_str());
+            if (!fGood)
+                throw std::runtime_error("Invalid private key");
+            CKey key = vchSecret.GetKey();
+            if (!key.IsValid())
+                throw std::runtime_error("Private key outside allowed range");
+            tempKeystore.AddKey(key);
+        }
+    }
+
+    // Use CTransaction for the constant parts of the
+    // transaction to avoid rehashing.
+    const CTransaction txConst(mtx);
+    // Sign what we can:
+    for (unsigned int i = 0; i < mtx.vin.size(); i++) {
+        CTxIn& txin = mtx.vin[i];
+
+        std::vector<uint8_t> vchAmount(8);
+        SignatureData sigdata;
+        //CScript prevPubKey = coin.out.scriptPubKey;
+        CAmount amount = coin.out.nValue;
+        memcpy(&vchAmount[0], &amount, 8);
+
+        /* TODO: Uncomment....
+        // Only sign SIGHASH_SINGLE if there's a corresponding output:
+        if (!fHashSingle || (i < mtx.GetNumVOuts()))
+            ProduceSignature(MutableTransactionSignatureCreator(&keystore, &mtx, i, vchAmount, nHashType), prevPubKey, sigdata);
+
+        sigdata = CombineSignatures(prevPubKey, TransactionSignatureChecker(&txConst, i, vchAmount), sigdata, DataFromTransaction(mtx, i));
+        UpdateTransaction(mtx, i, sigdata);
+
+        ScriptError serror = SCRIPT_ERR_OK;
+        if (!VerifyScript(txin.scriptSig, prevPubKey, &txin.scriptWitness, STANDARD_SCRIPT_VERIFY_FLAGS, TransactionSignatureChecker(&txConst, i, vchAmount), &serror)) {
+            if (serror == SCRIPT_ERR_INVALID_STACK_OPERATION) {
+                // Unable to sign input and verification failed (possible attempt to partially sign).
+                throw std::runtime_error("Unable to sign input, invalid stack size (possibly missing key)");
+            } else {
+                throw std::runtime_error(ScriptErrorString(serror));
+            }
+        }
+        */
+    }
+
+
+
 /*
     // Fetch previous transactions (inputs):
     CCoinsView viewDummy;
