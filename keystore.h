@@ -8,7 +8,7 @@
 
 #include <key.h>
 #include <key/extkey.h>
-#include <key/stealth.h>
+//#include <key/stealth.h>
 #include <pubkey.h>
 #include <script/script.h>
 #include <script/standard.h>

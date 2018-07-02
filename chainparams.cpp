@@ -4,7 +4,6 @@
 // file COPYING or http://www.opensource.org/licenses/mit-license.php.
 
 #include <chainparams.h>
-#include <consensus/merkle.h>
 
 #include <tinyformat.h>
 #include <util.h>
@@ -12,9 +11,6 @@
 #include <utilmoneystr.h>
 
 #include <assert.h>
-
-#include <chainparamsseeds.h>
-#include <chainparamsimport.h>
 
 int64_t CChainParams::GetCoinYearReward(int64_t nTime) const
 {
@@ -30,18 +26,6 @@ int64_t CChainParams::GetCoinYearReward(int64_t nTime) const
     };
 
     return nCoinYearReward;
-};
-
-int64_t CChainParams::GetProofOfStakeReward(const CBlockIndex *pindexPrev, int64_t nFees) const
-{
-    int64_t nSubsidy;
-
-    nSubsidy = (pindexPrev->nMoneySupply / COIN) * GetCoinYearReward(pindexPrev->nTime) / (365 * 24 * (60 * 60 / nTargetSpacing));
-
-    if (LogAcceptCategory(BCLog::POS) && gArgs.GetBoolArg("-printcreation", false))
-        LogPrintf("GetProofOfStakeReward(): create=%s\n", FormatMoney(nSubsidy).c_str());
-
-    return nSubsidy + nFees;
 };
 
 bool CChainParams::CheckImportCoinbase(int nHeight, uint256 &hash) const
@@ -132,7 +116,6 @@ static CBlock CreateGenesisBlock(const char* pszTimestamp, const CScript& genesi
     genesis.nVersion = nVersion;
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
     genesis.hashPrevBlock.SetNull();
-    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
     return genesis;
 }
 
@@ -294,8 +277,6 @@ static CBlock CreateGenesisBlockRegTest(uint32_t nTime, uint32_t nNonce, uint32_
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
 
     genesis.hashPrevBlock.SetNull();
-    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    genesis.hashWitnessMerkleRoot = BlockWitnessMerkleRoot(genesis);
 
     return genesis;
 }
@@ -328,8 +309,6 @@ static CBlock CreateGenesisBlockTestNet(uint32_t nTime, uint32_t nNonce, uint32_
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
 
     genesis.hashPrevBlock.SetNull();
-    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    genesis.hashWitnessMerkleRoot = BlockWitnessMerkleRoot(genesis);
 
     return genesis;
 }
@@ -363,8 +342,6 @@ static CBlock CreateGenesisBlockMainNet(uint32_t nTime, uint32_t nNonce, uint32_
     genesis.vtx.push_back(MakeTransactionRef(std::move(txNew)));
 
     genesis.hashPrevBlock.SetNull();
-    genesis.hashMerkleRoot = BlockMerkleRoot(genesis);
-    genesis.hashWitnessMerkleRoot = BlockWitnessMerkleRoot(genesis);
 
     return genesis;
 }
@@ -438,10 +415,6 @@ public:
          * The characters are rarely used upper ASCII, not valid as UTF-8, and produce
          * a large 32-bit integer with any alignment.
          */
-        pchMessageStart[0] = 0xfb;
-        pchMessageStart[1] = 0xf2;
-        pchMessageStart[2] = 0xef;
-        pchMessageStart[3] = 0xb4;
         nDefaultPort = 40627;
         nBIP44ID = 0x80000090; // 144'
 
@@ -496,9 +469,9 @@ public:
         exit(0);
 #endif
 
-        assert(consensus.hashGenesisBlock == uint256S("0x0000d4eca6bf61e681d9656fcc32b14b4dbb9eca97cca9fb4b1e0b6bd7c01cf5"));
-        assert(genesis.hashMerkleRoot == uint256S("0x5209723d5612a46836b3ad1f4ccddd254e24b80cbfb72e002b939a6b33798ded"));
-        assert(genesis.hashWitnessMerkleRoot == uint256S("0x6469c0da68980d85d0972eb8d2d74480630025ffcf8d43a9cbb9a7fc16bf4b14"));
+        //assert(consensus.hashGenesisBlock == uint256S("0x0000d4eca6bf61e681d9656fcc32b14b4dbb9eca97cca9fb4b1e0b6bd7c01cf5"));
+        //assert(genesis.hashMerkleRoot == uint256S("0x5209723d5612a46836b3ad1f4ccddd254e24b80cbfb72e002b939a6b33798ded"));
+        //assert(genesis.hashWitnessMerkleRoot == uint256S("0x6469c0da68980d85d0972eb8d2d74480630025ffcf8d43a9cbb9a7fc16bf4b14"));
 
         // Note that of those with the service bits flag, most only support a subset of possible options
         /*
@@ -537,8 +510,6 @@ public:
         bech32Prefixes[EXT_ACC_HASH].assign         ("pea","pea"+3);
 
         bech32_hrp = "bc";
-
-        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_main, pnSeed6_main + ARRAYLEN(pnSeed6_main));
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = true;
@@ -629,10 +600,6 @@ public:
 
         consensus.nMinRCTOutputDepth = 12;
 
-        pchMessageStart[0] = 0x08;
-        pchMessageStart[1] = 0x11;
-        pchMessageStart[2] = 0x05;
-        pchMessageStart[3] = 0x0b;
         nDefaultPort = 40827;
         nBIP44ID = 0x80000001;
 
@@ -642,7 +609,6 @@ public:
         nTargetTimespan = 24 * 60;      // 24 mins
 
 
-        AddImportHashesTest(vImportedCoinbaseTxns);
         SetLastImportHeight();
 
         nPruneAfterHeight = 1000;
@@ -690,8 +656,6 @@ public:
         bech32Prefixes[EXT_ACC_HASH].assign         ("tpea","tpea"+4);
 
         bech32_hrp = "tb";
-
-        vFixedSeeds = std::vector<SeedSpec6>(pnSeed6_test, pnSeed6_test + ARRAYLEN(pnSeed6_test));
 
         fDefaultConsistencyChecks = false;
         fRequireStandard = false;
@@ -754,10 +718,6 @@ public:
 
         consensus.nMinRCTOutputDepth = 1;
 
-        pchMessageStart[0] = 0x09;
-        pchMessageStart[1] = 0x12;
-        pchMessageStart[2] = 0x06;
-        pchMessageStart[3] = 0x0c;
         nDefaultPort = 11938;
         nBIP44ID = 0x80000001;
 

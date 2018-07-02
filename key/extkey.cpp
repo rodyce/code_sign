@@ -528,36 +528,6 @@ int CExtKeyPair::SetKeyCode(const unsigned char *pkey, const unsigned char *pcod
     return 0;
 };
 
-
-std::string CEKAStealthKey::ToStealthAddress() const
-{
-    // Return base58 encoded public stealth address
-
-    CStealthAddress sxAddr;
-    SetSxAddr(sxAddr);
-    return sxAddr.Encoded();
-};
-
-
-int CEKAStealthKey::SetSxAddr(CStealthAddress &sxAddr) const
-{
-    sxAddr.prefix.number_bits = nPrefixBits;
-    sxAddr.prefix.bitfield = nPrefix;
-    sxAddr.scan_pubkey = pkScan;
-    sxAddr.spend_pubkey = pkSpend;
-    sxAddr.scan_secret.Set(skScan.begin(), true);
-
-    return 0;
-};
-
-int CEKAStealthKey::ToRaw(std::vector<uint8_t> &raw) const
-{
-    // inefficient
-    CStealthAddress sxAddr;
-    SetSxAddr(sxAddr);
-    return sxAddr.ToRaw(raw);
-};
-
 std::string CStoredExtKey::GetIDString58() const
 {
     return HDKeyIDToString(kp.GetID());
@@ -617,26 +587,7 @@ int CExtKeyAccount::HaveKey(const CKeyID &id, bool fUpdate, const CEKAKey *&pak,
     };
 
     pak = nullptr;
-    return HaveStealthKey(id, pasc, ismine);
-};
-
-int CExtKeyAccount::HaveStealthKey(const CKeyID &id, const CEKASCKey *&pasc, isminetype &ismine)
-{
-    LOCK(cs_account);
-
-    AccKeySCMap::const_iterator miSck = mapStealthChildKeys.find(id);
-    if (miSck != mapStealthChildKeys.end())
-    {
-        pasc = &miSck->second;
-        AccStealthKeyMap::const_iterator miSk = mapStealthKeys.find(pasc->idStealthKey);
-        if (miSk == mapStealthKeys.end())
-            ismine = ISMINE_NO;
-        else
-            ismine = IsMine(miSk->second.akSpend.nParent);
-        return HK_YES;
-    };
-    ismine = ISMINE_NO;
-    return HK_NO;
+    return false;
 };
 
 bool CExtKeyAccount::GetKey(const CKeyID &id, CKey &keyOut) const
@@ -668,11 +619,7 @@ bool CExtKeyAccount::GetKey(const CEKASCKey &asck, CKey &keyOut) const
 {
     LOCK(cs_account);
 
-    AccStealthKeyMap::const_iterator miSk = mapStealthKeys.find(asck.idStealthKey);
-    if (miSk == mapStealthKeys.end())
-        return error("%s: CEKASCKey Stealth key not found.", __func__);
-
-    return (0 == ExpandStealthChildKey(&miSk->second, asck.sShared, keyOut));
+    return false;
 };
 
 int CExtKeyAccount::GetKey(const CKeyID &id, CKey &keyOut, CEKAKey &ak, CKeyID &idStealth) const
@@ -756,11 +703,7 @@ bool CExtKeyAccount::GetPubKey(const CEKASCKey &asck, CPubKey &pkOut) const
 {
     LOCK(cs_account);
 
-    AccStealthKeyMap::const_iterator miSk = mapStealthKeys.find(asck.idStealthKey);
-    if (miSk == mapStealthKeys.end())
-        return error("%s: CEKASCKey Stealth key not in this account!", __func__);
-
-    return (0 == ExpandStealthChildPubKey(&miSk->second, asck.sShared, pkOut));
+    return false;
 };
 
 bool CExtKeyAccount::SaveKey(const CKeyID &id, const CEKAKey &keyIn)
@@ -852,27 +795,11 @@ bool CExtKeyAccount::SaveKey(const CKeyID &id, const CEKASCKey &keyIn)
     if (mi != mapStealthChildKeys.end())
         return false; // already saved
 
-    AccStealthKeyMap::const_iterator miSk = mapStealthKeys.find(keyIn.idStealthKey);
-    if (miSk == mapStealthKeys.end())
-        return error("SaveKey(): CEKASCKey Stealth key not in this account!");
-
-    mapStealthChildKeys[id] = keyIn;
-
     if (LogAcceptCategory(BCLog::HDWALLET))
         LogPrintf("SaveKey(): CEKASCKey %s, %s.\n", GetIDString58(), CBitcoinAddress(id).ToString());
 
     return true;
 };
-
-bool CExtKeyAccount::IsLocked(const CEKAStealthKey &aks)
-{
-    // TODO: check aks belongs to account??
-    CStoredExtKey *pc = GetChain(aks.akSpend.nParent);
-    if (pc && !pc->fLocked)
-        return false;
-    return true;
-};
-
 
 int CExtKeyAccount::AddLookBehind(uint32_t nChain, uint32_t nKeys)
 {
@@ -1004,47 +931,6 @@ int CExtKeyAccount::AddLookAhead(uint32_t nChain, uint32_t nKeys)
     return 0;
 };
 
-
-int CExtKeyAccount::ExpandStealthChildKey(const CEKAStealthKey *aks, const CKey &sShared, CKey &kOut) const
-{
-    // Derive the secret key of the stealth address and then the secret key out
-
-    LOCK(cs_account);
-
-    if (!aks)
-        return errorN(1, "%s: Sanity checks failed.", __func__);
-
-    CKey kSpend;
-    if (!GetKey(aks->akSpend, kSpend))
-        return errorN(1, "%s: GetKey() failed.", __func__);
-
-    if (StealthSharedToSecretSpend(sShared, kSpend, kOut) != 0)
-        return errorN(1, "%s: StealthSharedToSecretSpend() failed.", __func__);
-
-    return 0;
-};
-
-int CExtKeyAccount::ExpandStealthChildPubKey(const CEKAStealthKey *aks, const CKey &sShared, CPubKey &pkOut) const
-{
-    // Works with locked wallet
-
-    LOCK(cs_account);
-
-    if (!aks)
-        return errorN(1, "%s: Sanity checks failed.", __func__);
-
-    ec_point pkExtract;
-
-    if (StealthSharedToPublicKey(aks->pkSpend, sShared, pkExtract) != 0)
-        return errorN(1, "%s: StealthSharedToPublicKey() failed.", __func__);
-
-    pkOut = CPubKey(pkExtract);
-
-    if (!pkOut.IsValid())
-        return errorN(1, "%s: Invalid public key.", __func__);
-
-    return 0;
-};
 
 int CExtKeyAccount::WipeEncryption()
 {

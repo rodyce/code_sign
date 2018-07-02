@@ -8,7 +8,6 @@
 
 
 #include <key.h>
-#include <key/stealth.h>
 #include <util.h>
 #include <key/keyutil.h>
 #include <key/types.h>
@@ -492,86 +491,6 @@ public:
     std::string sLabel; // TODO: remove
 };
 
-class CEKAStealthKey
-{
-public:
-    CEKAStealthKey() {};
-    CEKAStealthKey(uint32_t nScanParent_, uint32_t nScanKey_, const CKey &scanSecret_,
-        uint32_t nSpendParent_, uint32_t nSpendKey_, const CPubKey &pkSpendSecret,
-        uint8_t nPrefixBits_, uint32_t nPrefix_)
-    {
-        // Spend secret is not stored
-        nFlags = 0;
-        nScanParent = nScanParent_;
-        nScanKey = nScanKey_;
-        skScan = scanSecret_;
-        CPubKey pk = skScan.GetPubKey();
-        pkScan.resize(pk.size());
-        memcpy(&pkScan[0], pk.begin(), pk.size());
-
-        akSpend = CEKAKey(nSpendParent_, nSpendKey_);
-        pk = pkSpendSecret;
-        pkSpend.resize(pk.size());
-        memcpy(&pkSpend[0], pk.begin(), pk.size());
-
-        nPrefixBits = nPrefixBits_;
-        nPrefix = nPrefix_;
-    };
-
-    std::string ToStealthAddress() const;
-    int SetSxAddr(CStealthAddress &sxAddr) const;
-
-    int ToRaw(std::vector<uint8_t> &raw) const;
-
-    CKeyID GetID() const
-    {
-        // Not likely to be called very often
-        return skScan.GetPubKey().GetID();
-    };
-
-    template<typename Stream>
-    void Serialize(Stream &s) const
-    {
-        s << nFlags;
-        s << sLabel;
-        s << nScanParent;
-        s << nScanKey;
-        s << skScan;
-        s << akSpend;
-        s << pkScan;
-        s << pkSpend;
-        s << nPrefixBits;
-        s << nPrefix;
-    };
-    template <typename Stream>
-    void Unserialize(Stream &s)
-    {
-        s >> nFlags;
-        s >> sLabel;
-        s >> nScanParent;
-        s >> nScanKey;
-        s >> skScan;
-        s >> akSpend;
-        s >> pkScan;
-        s >> pkSpend;
-        s >> nPrefixBits;
-        s >> nPrefix;
-    };
-
-    uint8_t nFlags; // options of CStealthAddress
-    std::string sLabel;
-    uint32_t nScanParent; // vExtKeys
-    uint32_t nScanKey;
-    CKey skScan;
-    CEKAKey akSpend;
-
-    ec_point pkScan;
-    ec_point pkSpend;
-
-    uint8_t nPrefixBits;
-    uint32_t nPrefix;
-};
-
 class CEKAKeyPack
 {
 public:
@@ -618,33 +537,8 @@ public:
     CEKASCKey asck;
 };
 
-class CEKAStealthKeyPack
-{
-public:
-    CEKAStealthKeyPack() {};
-    CEKAStealthKeyPack(CKeyID id_, const CEKAStealthKey &aks_) : id(id_), aks(aks_) {};
-
-    template<typename Stream>
-    void Serialize(Stream &s) const
-    {
-        s << id;
-        s << aks;
-    };
-    template <typename Stream>
-    void Unserialize(Stream &s)
-    {
-        s >> id;
-        s >> aks;
-    };
-
-    CKeyID id;
-    CEKAStealthKey aks;
-};
-
-
 typedef std::map<CKeyID, CEKAKey> AccKeyMap;
 typedef std::map<CKeyID, CEKASCKey> AccKeySCMap;
-typedef std::map<CKeyID, CEKAStealthKey> AccStealthKeyMap;
 
 class CExtKeyAccount
 { // stored by idAccount
@@ -684,13 +578,11 @@ public:
 
     int HaveSavedKey(const CKeyID &id);
     int HaveKey(const CKeyID &id, bool fUpdate, const CEKAKey *&pak, const CEKASCKey *&pasc, isminetype &ismine);
-    int HaveStealthKey(const CKeyID &id, const CEKASCKey *&pasc, isminetype &ismine);
     bool GetKey(const CKeyID &id, CKey &keyOut) const;
     bool GetKey(const CEKAKey &ak, CKey &keyOut) const;
     bool GetKey(const CEKASCKey &asck, CKey &keyOut) const;
 
     int GetKey(const CKeyID &id, CKey &keyOut, CEKAKey &ak, CKeyID &idStealth) const; // retuurns 1: chain, 2: stealth address
-
 
     bool GetPubKey(const CKeyID &id, CPubKey &pkOut) const;
     bool GetPubKey(const CEKAKey &ak, CPubKey &pkOut) const;
@@ -698,8 +590,6 @@ public:
 
     bool SaveKey(const CKeyID &id, const CEKAKey &keyIn);
     bool SaveKey(const CKeyID &id, const CEKASCKey &keyIn);
-
-    bool IsLocked(const CEKAStealthKey &aks);
 
     bool GetChainNum(CStoredExtKey *p, uint32_t &nChain) const
     {
@@ -777,9 +667,6 @@ public:
         return AddLookAhead(nActiveExternal, nKeys);
     };
 
-    int ExpandStealthChildKey(const CEKAStealthKey *aks, const CKey &sShared, CKey &kOut) const;
-    int ExpandStealthChildPubKey(const CEKAStealthKey *aks, const CKey &sShared, CPubKey &pkOut) const;
-
     int WipeEncryption();
 
     template<typename Stream>
@@ -824,9 +711,6 @@ public:
     AccKeyMap mapLookAhead;
 
     AccKeySCMap mapStealthChildKeys; // keys derived from stealth addresses
-
-    AccStealthKeyMap mapStealthKeys;
-    AccStealthKeyMap mapLookAheadStealth;
 
     std::string sLabel; // account name
     CKeyID idMaster;

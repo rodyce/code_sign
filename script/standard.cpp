@@ -6,7 +6,7 @@
 #include <script/standard.h>
 
 #include <key/extkey.h>
-#include <key/stealth.h>
+//#include <key/stealth.h>
 #include <pubkey.h>
 #include <script/script.h>
 #include <util.h>
@@ -488,12 +488,6 @@ public:
         script->clear();
         *script << CScript::EncodeOP_N(id.version) << std::vector<unsigned char>(id.program, id.program + id.length);
         return true;
-    }
-
-    bool operator()(const CStealthAddress &ek) const {
-        script->clear();
-        LogPrintf("CScriptVisitor(CStealthAddress) TODO\n");
-        return false;
     }
 
     bool operator()(const CExtKeyPair &ek) const {

@@ -82,7 +82,6 @@ public:
     };
 
     const Consensus::Params& GetConsensus() const { return consensus; }
-    const CMessageHeader::MessageStartChars& MessageStart() const { return pchMessageStart; }
     int GetDefaultPort() const { return nDefaultPort; }
 
     int BIP44ID() const { return nBIP44ID; }
@@ -97,8 +96,6 @@ public:
 
     const DevFundSettings *GetDevFundSettings(int64_t nTime) const;
     const std::vector<std::pair<int64_t, DevFundSettings> > &GetDevFundSettings() const {return vDevFundSettings;};
-
-    int64_t GetProofOfStakeReward(const CBlockIndex *pindexPrev, int64_t nFees) const;
 
     bool CheckImportCoinbase(int nHeight, uint256 &hash) const;
     uint32_t GetLastImportHeight() const { return nLastImportHeight; }
@@ -146,7 +143,6 @@ protected:
     }
 
     Consensus::Params consensus;
-    CMessageHeader::MessageStartChars pchMessageStart;
     int nDefaultPort;
     int nBIP44ID;
 

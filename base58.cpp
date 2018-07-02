@@ -212,11 +212,13 @@ bool CBase58Data::SetString(const char* psz, unsigned int nVersionBytes)
 
             // Length already checked
             vchVersion = Params().Base58Prefix(CChainParams::EXT_PUBLIC_KEY);
+            /*
             CExtKeyPair ekp;
             ekp.DecodeV(&vchTemp[4]);
             vchData.resize(74);
             ekp.EncodeP(&vchData[0]);
             memory_cleanse(&vchTemp[0], vchData.size());
+            */
             return true;
         };
     };
@@ -284,7 +286,6 @@ public:
     bool operator()(const CKeyID& id) const { return addr->Set(id, fBech32); }
     bool operator()(const CScriptID& id) const { return addr->Set(id, fBech32); }
     bool operator()(const CExtKeyPair &ek) const { return addr->Set(ek, fBech32); }
-    bool operator()(const CStealthAddress &sxAddr) const { return addr->Set(sxAddr, fBech32); }
     bool operator()(const CKeyID256& id) const { return addr->Set(id, fBech32); }
     bool operator()(const CScriptID256& id) const { return addr->Set(id, fBech32); }
 
@@ -341,17 +342,6 @@ bool CBitcoinAddress::Set(const CKeyID &id, CChainParams::Base58Type prefix, boo
     return true;
 }
 
-bool CBitcoinAddress::Set(const CStealthAddress &sx, bool fBech32)
-{
-    std::vector<uint8_t> raw;
-    if (0 != sx.ToRaw(raw))
-        return false;
-
-    SetData(fBech32 ? Params().Bech32Prefix(CChainParams::STEALTH_ADDRESS)
-        : Params().Base58Prefix(CChainParams::STEALTH_ADDRESS), &raw[0], raw.size());
-    return true;
-};
-
 bool CBitcoinAddress::Set(const CExtKeyPair &ek, bool fBech32)
 {
     std::vector<unsigned char> vchVersion;
@@ -380,36 +370,6 @@ bool CBitcoinAddress::Set(const CTxDestination& dest, bool fBech32)
     return boost::apply_visitor(CBitcoinAddressVisitor(this, fBech32), dest);
 }
 
-bool CBitcoinAddress::IsValidStealthAddress() const
-{
-    return IsValidStealthAddress(Params());
-};
-
-bool CBitcoinAddress::IsValidStealthAddress(const CChainParams &params) const
-{
-    if (vchVersion != params.Base58Prefix(CChainParams::STEALTH_ADDRESS)
-        && vchVersion != params.Bech32Prefix(CChainParams::STEALTH_ADDRESS))
-        return false;
-
-    if (vchData.size() < MIN_STEALTH_RAW_SIZE)
-        return false;
-
-    size_t nPkSpend = vchData[34];
-
-    if (nPkSpend != 1) // TODO: allow multi
-        return false;
-
-    size_t nBits = vchData[35 + EC_COMPRESSED_SIZE * nPkSpend + 1];
-    if (nBits > 32)
-        return false;
-
-    size_t nPrefixBytes = std::ceil((float)nBits / 8.0);
-
-    if (vchData.size() != MIN_STEALTH_RAW_SIZE + EC_COMPRESSED_SIZE * (nPkSpend-1) + nPrefixBytes)
-        return false;
-    return true;
-};
-
 bool CBitcoinAddress::IsValid() const
 {
     return IsValid(Params());
@@ -437,7 +397,7 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
             case CChainParams::EXT_SECRET_KEY:
                 return vchData.size() == BIP32_KEY_N_BYTES;
             case CChainParams::STEALTH_ADDRESS:
-                return IsValidStealthAddress(params);
+                return false;
             default:
                 return false;
         };
@@ -449,9 +409,6 @@ bool CBitcoinAddress::IsValid(const CChainParams& params) const
     bool fKnownVersion = vchVersion == params.Base58Prefix(CChainParams::PUBKEY_ADDRESS) ||
                          vchVersion == params.Base58Prefix(CChainParams::SCRIPT_ADDRESS);
     if (fCorrectSize && fKnownVersion)
-        return true;
-
-    if (IsValidStealthAddress(params))
         return true;
 
     if (vchVersion.size() == 4
@@ -489,7 +446,7 @@ bool CBitcoinAddress::IsValid(CChainParams::Base58Type prefix) const
             case CChainParams::EXT_SECRET_KEY:
                 return vchData.size() == BIP32_KEY_N_BYTES;
             case CChainParams::STEALTH_ADDRESS:
-                return IsValidStealthAddress(Params());
+                return false;
             default:
                 return false;
         };
@@ -534,14 +491,6 @@ CTxDestination CBitcoinAddress::Get() const
         CExtKeyPair kp;
         kp.DecodeV(vchData.data());
         return kp;
-    } else
-    if (vchVersion == Params().Base58Prefix(CChainParams::STEALTH_ADDRESS)
-        || vchVersion == Params().Bech32Prefix(CChainParams::STEALTH_ADDRESS))
-    {
-        CStealthAddress sx;
-        if (0 == sx.FromRaw(vchData.data(), vchData.size()))
-            return sx;
-        return CNoDestination();
     } else
     if (vchVersion == Params().Base58Prefix(CChainParams::EXT_PUBLIC_KEY)
         || vchVersion == Params().Bech32Prefix(CChainParams::EXT_PUBLIC_KEY))
@@ -697,7 +646,6 @@ public:
     }
 
     std::string operator()(const CExtKeyPair &ek) const { return CBitcoinAddress(ek, fBech32).ToString(); }
-    std::string operator()(const CStealthAddress &sxAddr) const { return CBitcoinAddress(sxAddr, fBech32).ToString(); }
     std::string operator()(const CKeyID256& id) const { return CBitcoinAddress(id, fBech32).ToString(); }
     std::string operator()(const CScriptID256& id) const { return CBitcoinAddress(id, fBech32).ToString(); }
 
@@ -729,15 +677,6 @@ CTxDestination DecodeDestination(const std::string& str, const CChainParams& par
             std::copy(data.begin() + script_prefix.size(), data.end(), hash.begin());
             return CScriptID(hash);
         }
-
-        const std::vector<unsigned char>& stealth_prefix = params.Base58Prefix(CChainParams::STEALTH_ADDRESS);
-        if (data.size() > stealth_prefix.size() && std::equal(stealth_prefix.begin(), stealth_prefix.end(), data.begin())) {
-            CStealthAddress sx;
-            if (0 == sx.FromRaw(data.data()+stealth_prefix.size(), data.size()))
-                return sx;
-            return CNoDestination();
-        }
-
     }
     data.clear();
     auto bech = bech32::Decode(str);
