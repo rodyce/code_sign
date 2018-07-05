@@ -67,9 +67,11 @@ add_definitions(
     -DCOPYRIGHT_HOLDERS_SUBSTITUTION="Coin Sign"
 )
 
-add_executable(${COIN_SIGN}
+add_library(${COIN_SIGN} SHARED
     ${SOURCE}
 )
+
+set_target_properties(${COIN_SIGN} PROPERTIES PUBLIC_HEADER coin-sign.h)
 
 target_link_libraries(${PROJECT_NAME}
     ${Boost_LIBRARIES}

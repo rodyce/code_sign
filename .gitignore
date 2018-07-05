@@ -35,3 +35,8 @@
 build
 .vscode
 
+cmake_install.cmake
+CMakeCache.txt
+coin_sign
+Makefile
+CMakeFiles

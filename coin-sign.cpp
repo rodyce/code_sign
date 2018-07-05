@@ -92,13 +92,17 @@ const TxOutData& findTxOutDataByOutPoint(const std::vector<TxOutData>& txOutData
 
 
 
-int main(int argc, char* argv[]) {
+// int main(int argc, char* argv[]) {
+//     SelectParams(CBaseChainParams::MAIN);
+//     auto txHex = createrawtransaction(sample_inputs, sample_outputs);
+//     std::cout << "Resulting TX Hex: " << txHex << std::endl;
+//     auto signedTxHex = signrawtransaction(txHex, sample_prev_outs, sample_priv_keys);
+//     std::cout << "Signed TX Hex: " << signedTxHex << std::endl;
+//     return 0;
+// }
+
+void init() {
     SelectParams(CBaseChainParams::MAIN);
-    auto txHex = createrawtransaction(sample_inputs, sample_outputs);
-    std::cout << "Resulting TX Hex: " << txHex << std::endl;
-    auto signedTxHex = signrawtransaction(txHex, sample_prev_outs, sample_priv_keys);
-    std::cout << "Signed TX Hex: " << signedTxHex << std::endl;
-    return 0;
 }
 
 
