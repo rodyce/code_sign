@@ -54,7 +54,7 @@ set (SOURCE
     ${SOURCES}
 )
 
-add_compile_options(-std=c++11 -Wall -Werror -ggdb -g3 -rdynamic -O0)
+add_compile_options(-std=c++11 -Wall -Werror -ggdb -g3 -rdynamic -O0 -fPIC)
 add_definitions(
     -DHAVE_DECL_HTOBE16 -DHAVE_DECL_HTOLE16 -DHAVE_DECL_BE16TOH
     -DHAVE_DECL_LE16TOH=1 -DHAVE_DECL_HTOBE32 -DHAVE_DECL_HTOLE32
@@ -67,7 +67,7 @@ add_definitions(
     -DCOPYRIGHT_HOLDERS_SUBSTITUTION="Coin Sign"
 )
 
-add_library(${COIN_SIGN} SHARED
+add_library(${COIN_SIGN}
     ${SOURCE}
 )
 
